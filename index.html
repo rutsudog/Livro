@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Livro-Razão — Controle de Gastos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="cover-stitch" aria-hidden="true"></div>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <p class="eyebrow">caderno digital · nº 01</p>
+    <h1>Livro-Razão</h1>
+    <p class="subtitle">o mesmo controle do seu planner físico, sempre à mão</p>
+  </div>
+  <div class="masthead-actions">
+    <button id="btnExportCsv" class="btn btn-ghost">Baixar lista (CSV)</button>
+    <button id="btnExportJson" class="btn btn-ghost">Baixar backup (JSON)</button>
+    <label class="btn btn-ghost file-btn">
+      Importar backup
+      <input type="file" id="inputImport" accept="application/json" hidden>
+    </label>
+  </div>
+</header>
+
+<main class="ledger">
+
+  <!-- CONTAS -->
+  <section class="sheet" id="sheetContas">
+    <div class="sheet-tab">contas</div>
+    <div class="sheet-head">
+      <h2>Contas</h2>
+      <button id="btnNovaConta" class="btn btn-line">+ nova conta</button>
+    </div>
+    <div id="contasGrid" class="contas-grid"></div>
+  </section>
+
+  <!-- NOVO LANÇAMENTO -->
+  <section class="sheet" id="sheetForm">
+    <div class="sheet-tab">lançar</div>
+    <div class="sheet-head">
+      <h2>Novo lançamento</h2>
+    </div>
+
+    <form id="formLancamento" class="ledger-form" autocomplete="off">
+      <div class="tipo-toggle" role="radiogroup" aria-label="Tipo de lançamento">
+        <button type="button" class="tipo-btn active" data-tipo="gasto" role="radio" aria-checked="true">Gasto</button>
+        <button type="button" class="tipo-btn" data-tipo="ganho" role="radio" aria-checked="false">Ganho</button>
+      </div>
+
+      <div class="form-grid">
+        <label class="field">
+          <span>Valor total (R$)</span>
+          <input type="number" id="fValor" step="0.01" min="0.01" required inputmode="decimal" placeholder="0,00">
+        </label>
+
+        <label class="field">
+          <span>Data</span>
+          <input type="date" id="fData" required>
+        </label>
+
+        <label class="field field-wide">
+          <span>Descrição</span>
+          <input type="text" id="fDescricao" required placeholder="ex.: mercado, tênis novo, salário">
+        </label>
+
+        <label class="field">
+          <span>Categoria</span>
+          <input type="text" id="fCategoria" list="listaCategorias" required placeholder="ex.: alimentação">
+          <datalist id="listaCategorias"></datalist>
+        </label>
+
+        <label class="field">
+          <span>Conta</span>
+          <select id="fConta" required></select>
+        </label>
+
+        <div class="field credito-field" id="creditoField">
+          <label class="check-inline">
+            <input type="checkbox" id="fCredito">
+            <span>Compra parcelada no crédito</span>
+          </label>
+          <label class="field parcelas-qtd" id="parcelasQtdWrap" hidden>
+            <span>Nº de parcelas</span>
+            <input type="number" id="fParcelas" min="2" max="48" step="1" value="2">
+          </label>
+        </div>
+      </div>
+
+      <div class="form-foot">
+        <span id="parcelaPreview" class="parcela-preview"></span>
+        <button type="submit" class="btn btn-solid">Lançar</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- GRAFICO -->
+  <section class="sheet" id="sheetGrafico">
+    <div class="sheet-tab">panorama</div>
+    <div class="sheet-head">
+      <h2>Gastos por categoria</h2>
+      <select id="filtroPeriodo" class="select-inline">
+        <option value="mes">Este mês</option>
+        <option value="tudo">Desde o início</option>
+      </select>
+    </div>
+    <div class="grafico-wrap">
+      <div class="grafico-canvas-box">
+        <canvas id="chartCategorias"></canvas>
+        <div class="grafico-total" id="graficoTotalCentro">
+          <span class="valor" id="graficoTotalValor">R$ 0,00</span>
+          <span class="rotulo">total gasto</span>
+        </div>
+      </div>
+      <ul class="legenda-lista" id="legendaCategorias"></ul>
+    </div>
+  </section>
+
+  <!-- PARCELAS EM ABERTO -->
+  <section class="sheet" id="sheetParcelas">
+    <div class="sheet-tab">parcelas</div>
+    <div class="sheet-head">
+      <h2>Parcelas em aberto</h2>
+    </div>
+    <div id="parcelasLista" class="parcelas-lista"></div>
+  </section>
+
+  <!-- HISTORICO -->
+  <section class="sheet" id="sheetHistorico">
+    <div class="sheet-tab">histórico</div>
+    <div class="sheet-head">
+      <h2>Todos os lançamentos</h2>
+      <input type="search" id="buscaHistorico" placeholder="buscar por descrição ou categoria" class="input-busca">
+    </div>
+    <div class="tabela-wrap">
+      <table class="tabela-ledger" id="tabelaHistorico">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Descrição</th>
+            <th>Categoria</th>
+            <th>Conta</th>
+            <th>Parcela</th>
+            <th class="col-valor">Valor</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="corpoHistorico"></tbody>
+      </table>
+    </div>
+    <p class="vazio" id="historicoVazio" hidden>Nenhum lançamento ainda. Comece registrando um gasto ou ganho acima.</p>
+  </section>
+
+</main>
+
+<footer class="rodape">
+  <p>seus dados ficam salvos neste navegador · use "baixar backup" com frequência para não perder nada</p>
+</footer>
+
+<!-- MODAL NOVA CONTA -->
+<div class="modal-overlay" id="modalConta" hidden>
+  <div class="modal-card">
+    <h3>Nova conta</h3>
+    <label class="field">
+      <span>Nome da conta</span>
+      <input type="text" id="mContaNome" placeholder="ex.: carteira, cartão nubank, poupança">
+    </label>
+    <label class="field">
+      <span>Saldo atual</span>
+      <input type="number" id="mContaSaldo" step="0.01" placeholder="0,00">
+    </label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mContaCancelar">Cancelar</button>
+      <button class="btn btn-solid" id="mContaSalvar">Salvar conta</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
